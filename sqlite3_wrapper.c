@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <windows.h>
+
+
+static char buf[1024];
+
 
 struct query_result {
     sqlite3 *s;
@@ -11,12 +16,45 @@ struct query_result {
 
 
 
+/* We assume that given file name is relative to MT installation directory. We
+ * obtain this path prefix by query process's module name. */
+static char* build_db_fname (const char* db)
+{
+    unsigned int len, s;
+    char* res;
+
+    len = GetModuleFileNameA (NULL, buf, sizeof (buf));
+
+    if (len <= 0)
+        return NULL;
+
+    while (len > 0 && buf[len-1] != '\\')
+        len--;
+    if (!len)
+        return NULL;
+    buf[len-1] = 0;
+
+    s = len + 1 + strlen (db);
+    res = malloc (s);
+    if (!res)
+        return NULL;
+
+    snprintf (res, s, "%s/%s", buf, db);
+    return res;
+}
+
+
 int __stdcall sqlite_exec (const char *db, const char *sql)
 {
     sqlite3 *s;
     int res;
+    char* name = build_db_fname (db);
 
-    res = sqlite3_open (db, &s);
+    if (!name)
+        return -1;
+
+    res = sqlite3_open (name, &s);
+    free (name);
     if (res != SQLITE_OK)
         return res;
 
@@ -41,8 +79,13 @@ int __stdcall sqlite_table_exists (const char *db, const char *table)
     sqlite3_stmt *stmt;
     char buf[256];
     int res, exists;
+    char *name = build_db_fname (db);
 
-    res = sqlite3_open (db, &s);
+    if (!name)
+        return -1;
+
+    res = sqlite3_open (name, &s);
+    free (name);
     if (res != SQLITE_OK)
         return -res;
 
@@ -78,8 +121,13 @@ int __stdcall sqlite_query (const char *db, const char *sql, int* cols)
     sqlite3_stmt *stmt;
     int res;
     struct query_result *result;
+    char* name = build_db_fname (db);
 
-    res = sqlite3_open (db, &s);
+    if (!name)
+        return -1;
+
+    res = sqlite3_open (name, &s);
+    free (name);
     if (res != SQLITE_OK)
         return 0;
     res = sqlite3_prepare (s, sql, strlen (sql), &stmt, NULL);
