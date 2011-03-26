@@ -1,10 +1,15 @@
-#include <sqlite3.h>
+#include "sqlite3.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define WINVER 0x0501
+#include <windef.h>
 #include <windows.h>
+#include <shlobj.h>
+#include <shlwapi.h>
 
+#define APPDATA_PATHS 1
 
 static char buf[1024];
 
@@ -20,6 +25,20 @@ struct query_result {
  * obtain this path prefix by query process's module name. */
 static char* build_db_fname (const char* db)
 {
+#if APPDATA_PATHS
+    TCHAR buf[MAX_PATH];
+    HRESULT res;
+
+    res = SHGetFolderPathAndSubDir (0, CSIDL_APPDATA, NULL, 0, "MT-Sqlite", buf);
+    if (res != S_OK) {
+        SHGetFolderPath (0, CSIDL_APPDATA, NULL, 0, buf);
+        PathAppend (buf, "MT-Sqlite");
+        CreateDirectory (buf, NULL);
+    }
+    
+    PathAppend (buf, db);
+    return strdup (buf);
+#else
     unsigned int len, s;
     char* res;
 
@@ -39,8 +58,9 @@ static char* build_db_fname (const char* db)
     if (!res)
         return NULL;
 
-    snprintf (res, s, "%s/%s", buf, db);
+    snprintf (res, s, "%s\\%s", buf, db);
     return res;
+#endif
 }
 
 
