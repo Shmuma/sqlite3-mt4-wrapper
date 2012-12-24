@@ -11,7 +11,7 @@
 
 #define APPDATA_PATHS 1
 
-static char buf[1024];
+//static char buf[1024];
 
 
 struct query_result {
@@ -61,6 +61,20 @@ static char* build_db_fname (const char* db)
     snprintf (res, s, "%s\\%s", buf, db);
     return res;
 #endif
+}
+
+
+const char* __stdcall sqlite_get_fname (const char* db)
+{
+    static char buf[MAX_PATH];
+    char* p = build_db_fname (db);
+
+    if (!p)
+        return NULL;
+
+    strcpy (buf, p);
+    free (p);
+    return buf;
 }
 
 

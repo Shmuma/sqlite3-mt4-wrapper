@@ -24,6 +24,9 @@ int start ()
 {
     string db = "test.db";
 
+    string path = sqlite_get_fname (db);
+    Print ("Dest DB path: " + path);
+
     if (!do_check_table_exists (db, "test")) {
         Print ("DB not exists, create schema");
         do_exec (db, "create table test (name text)");

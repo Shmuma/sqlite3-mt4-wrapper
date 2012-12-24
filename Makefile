@@ -17,7 +17,7 @@ clean:
 
 
 test.ex4: test.mq4
-	ml4.sh test.mq4
+	ml4 test.mq4
 
 test2.ex4: test2.mq4
-	ml4.sh test2.mq4
+	ml4 test2.mq4
