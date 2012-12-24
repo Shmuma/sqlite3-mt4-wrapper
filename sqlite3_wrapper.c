@@ -25,6 +25,9 @@ struct query_result {
  * obtain this path prefix by query process's module name. */
 static char* build_db_fname (const char* db)
 {
+    // if path is absolute, just return it, assuming it holds full db path
+    if (!PathIsRelative (db))
+        return strdup (db);
 #if APPDATA_PATHS
     TCHAR buf[MAX_PATH];
     HRESULT res;
@@ -32,11 +35,12 @@ static char* build_db_fname (const char* db)
     res = SHGetFolderPathAndSubDir (0, CSIDL_APPDATA, NULL, 0, "MT-Sqlite", buf);
     if (res != S_OK) {
         SHGetFolderPath (0, CSIDL_APPDATA, NULL, 0, buf);
-        PathAppend (buf, "MT-Sqlite");
+        strcat (buf, "/MT-Sqlite");
         CreateDirectory (buf, NULL);
     }
     
-    PathAppend (buf, db);
+    strcat (buf, "/");
+    strcat (buf, db);
     return strdup (buf);
 #else
     unsigned int len, s;
