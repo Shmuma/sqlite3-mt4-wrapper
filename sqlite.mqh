@@ -10,4 +10,5 @@ int sqlite_next_row (int handle);
 string sqlite_get_col (int handle, int col);
 int sqlite_free_query (int handle);
 string sqlite_get_fname (string db_fname);
+int sqlite_enable_wal (int val);
 #import

@@ -11,6 +11,8 @@
 
 #define APPDATA_PATHS 1
 
+static int wal_mode = 0;
+
 //static char buf[1024];
 
 
@@ -96,6 +98,14 @@ int __stdcall sqlite_exec (const char *db, const char *sql)
     if (res != SQLITE_OK)
         return res;
 
+    if (wal_mode) {
+        res = sqlite3_exec (s, "PRAGMA journal_mode=WAL;", NULL, NULL, NULL);
+        if (res != SQLITE_OK) {
+            sqlite3_close (s);
+            return res;
+        }
+    }
+
     res = sqlite3_exec (s, sql, NULL, NULL, NULL);
     if (res != SQLITE_OK) {
         sqlite3_close (s);
@@ -126,6 +136,14 @@ int __stdcall sqlite_table_exists (const char *db, const char *table)
     free (name);
     if (res != SQLITE_OK)
         return -res;
+
+    if (wal_mode) {
+        res = sqlite3_exec (s, "PRAGMA journal_mode=WAL;", NULL, NULL, NULL);
+        if (res != SQLITE_OK) {
+            sqlite3_close (s);
+            return res;
+        }
+    }
 
     sprintf (buf, "select count(*) from sqlite_master where type='table' and name='%s'", table);
     res = sqlite3_prepare (s, buf, sizeof (buf), &stmt, NULL);
@@ -225,4 +243,10 @@ int __stdcall sqlite_free_query (int handle)
         sqlite3_close (data->s);
     free (data);
     return 1;
+}
+
+
+int __stdcall sqlite_enable_wal (int val)
+{
+    return (wal_mode = val);
 }
