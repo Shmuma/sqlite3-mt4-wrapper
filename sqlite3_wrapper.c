@@ -96,6 +96,8 @@ int __stdcall sqlite_exec (const char *db, const char *sql)
     if (res != SQLITE_OK)
         return res;
 
+    sqlite3_busy_timeout (s, 1000);
+
     res = sqlite3_exec (s, sql, NULL, NULL, NULL);
     if (res != SQLITE_OK) {
         sqlite3_close (s);
@@ -126,6 +128,8 @@ int __stdcall sqlite_table_exists (const char *db, const char *table)
     free (name);
     if (res != SQLITE_OK)
         return -res;
+
+    sqlite3_busy_timeout (s, 1000);
 
     sprintf (buf, "select count(*) from sqlite_master where type='table' and name='%s'", table);
     res = sqlite3_prepare (s, buf, sizeof (buf), &stmt, NULL);
@@ -168,6 +172,8 @@ int __stdcall sqlite_query (const char *db, const char *sql, int* cols)
     free (name);
     if (res != SQLITE_OK)
         return 0;
+    sqlite3_busy_timeout (s, 1000);
+
     res = sqlite3_prepare (s, sql, strlen (sql), &stmt, NULL);
     if (res != SQLITE_OK) {
         sqlite3_close (s);
