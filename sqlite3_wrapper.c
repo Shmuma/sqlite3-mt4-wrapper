@@ -13,6 +13,9 @@
 
 //static char buf[1024];
 
+// how long wait when DB is busy
+static int busy_timeout = 1000;
+
 
 struct query_result {
     sqlite3 *s;
@@ -68,6 +71,12 @@ static char* build_db_fname (const char* db)
 }
 
 
+static void tune_db_handler (sqlite3 *s)
+{
+    sqlite3_busy_timeout (s, busy_timeout);
+}
+
+
 const char* __stdcall sqlite_get_fname (const char* db)
 {
     static char buf[MAX_PATH];
@@ -95,6 +104,8 @@ int __stdcall sqlite_exec (const char *db, const char *sql)
     free (name);
     if (res != SQLITE_OK)
         return res;
+
+    tune_db_handler (s);
 
     res = sqlite3_exec (s, sql, NULL, NULL, NULL);
     if (res != SQLITE_OK) {
@@ -126,6 +137,8 @@ int __stdcall sqlite_table_exists (const char *db, const char *table)
     free (name);
     if (res != SQLITE_OK)
         return -res;
+
+    tune_db_handler (s);
 
     sprintf (buf, "select count(*) from sqlite_master where type='table' and name='%s'", table);
     res = sqlite3_prepare (s, buf, sizeof (buf), &stmt, NULL);
@@ -168,6 +181,9 @@ int __stdcall sqlite_query (const char *db, const char *sql, int* cols)
     free (name);
     if (res != SQLITE_OK)
         return 0;
+
+    tune_db_handler (s);
+
     res = sqlite3_prepare (s, sql, strlen (sql), &stmt, NULL);
     if (res != SQLITE_OK) {
         sqlite3_close (s);
@@ -225,4 +241,10 @@ int __stdcall sqlite_free_query (int handle)
         sqlite3_close (data->s);
     free (data);
     return 1;
+}
+
+
+void __stdcall sqlite_set_busy_timeout (int ms)
+{
+    busy_timeout = ms;
 }

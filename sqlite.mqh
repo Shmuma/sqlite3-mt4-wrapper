@@ -10,4 +10,5 @@ int sqlite_next_row (int handle);
 string sqlite_get_col (int handle, int col);
 int sqlite_free_query (int handle);
 string sqlite_get_fname (string db_fname);
+void sqlite_set_busy_timeout (int ms);
 #import
