@@ -16,6 +16,9 @@
 // how long wait when DB is busy
 static int busy_timeout = 1000;
 
+// pragma for journal mode
+static char* journal_statement = NULL;
+
 
 struct query_result {
     sqlite3 *s;
@@ -74,6 +77,9 @@ static char* build_db_fname (const char* db)
 static void tune_db_handler (sqlite3 *s)
 {
     sqlite3_busy_timeout (s, busy_timeout);
+
+    if (journal_statement)
+        sqlite3_exec (s, journal_statement, NULL, NULL, NULL);
 }
 
 
@@ -247,4 +253,22 @@ int __stdcall sqlite_free_query (int handle)
 void __stdcall sqlite_set_busy_timeout (int ms)
 {
     busy_timeout = ms;
+}
+
+
+void __stdcall sqlite_set_journal_mode (const char* mode)
+{
+    if (journal_statement) {
+        free (journal_statement);
+        journal_statement = NULL;
+    }
+
+    if (!mode)
+        return;
+
+    static const char* format = "PRAGMA journal_mode=%s;";
+    int len = strlen (format) + strlen (mode) + 1;
+
+    journal_statement = (char*)malloc (len);
+    sprintf (journal_statement, format, mode);
 }
