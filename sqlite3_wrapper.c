@@ -80,6 +80,8 @@ static void tune_db_handler (sqlite3 *s)
 
     if (journal_statement)
         sqlite3_exec (s, journal_statement, NULL, NULL, NULL);
+
+    RegisterExtensionFunctions (s);
 }
 
 
