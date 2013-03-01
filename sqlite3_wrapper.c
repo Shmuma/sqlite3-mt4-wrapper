@@ -186,14 +186,14 @@ int __stdcall sqlite_query (const char *db, const char *sql, int* cols)
     res = sqlite3_open (name, &s);
     free (name);
     if (res != SQLITE_OK)
-        return 0;
+        return -res;
 
     tune_db_handler (s);
 
     res = sqlite3_prepare (s, sql, strlen (sql), &stmt, NULL);
     if (res != SQLITE_OK) {
         sqlite3_close (s);
-        return 0;
+        return -res;
     }
 
     result = (struct query_result*)malloc (sizeof (struct query_result));
