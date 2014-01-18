@@ -205,6 +205,70 @@ int __stdcall sqlite_query (const char *db, const char *sql, int* cols)
     return (int)result;
 }
 
+int __stdcall sqlite_reset (int handle)
+{
+    struct query_result *res = (struct query_result*)handle;
+    int ret;
+
+    if (!res)
+        return 0;
+
+    ret = sqlite3_reset (res->stmt);
+
+    return ret == SQLITE_OK ? 1 : 0;
+}
+
+int __stdcall sqlite_bind_int (int handle, int col, int bind_value)
+{
+    struct query_result *res = (struct query_result*)handle;
+    int ret;
+
+    if (!res)
+        return 0;
+
+    ret = sqlite3_bind_int (res->stmt, col, bind_value);
+
+    return ret == SQLITE_OK ? 1 : 0;
+}
+
+int __stdcall sqlite_bind_double (int handle, int col, double bind_value)
+{
+    struct query_result *res = (struct query_result*)handle;
+    int ret;
+
+    if (!res)
+        return 0;
+
+    ret = sqlite3_bind_double (res->stmt, col, bind_value);
+
+    return ret == SQLITE_OK ? 1 : 0;
+}
+
+int __stdcall sqlite_bind_text (int handle, int col, const char* bind_value)
+{
+    struct query_result *res = (struct query_result*)handle;
+    int ret;
+
+    if (!res)
+        return 0;
+
+    ret = sqlite3_bind_text (res->stmt, col, bind_value, -1, SQLITE_STATIC);
+
+    return ret == SQLITE_OK ? 1 : 0;
+}
+
+int __stdcall sqlite_bind_null (int handle, int col)
+{
+    struct query_result *res = (struct query_result*)handle;
+    int ret;
+
+    if (!res)
+        return 0;
+
+    ret = sqlite3_bind_null (res->stmt, col);
+
+    return ret == SQLITE_OK ? 1 : 0;
+}
 
 /*
  * Return 1 if next row fetched, 0 if end of resultset reached
@@ -234,7 +298,25 @@ const char* __stdcall sqlite_get_col (int handle, int col)
     return sqlite3_column_text (data->stmt, col);
 }
 
+int __stdcall sqlite_get_col_int (int handle, int col)
+{
+    struct query_result *data = (struct query_result*)handle;
 
+    if (!data)
+        return 0;
+
+    return sqlite3_column_int (data->stmt, col);
+}
+
+double __stdcall sqlite_get_col_double (int handle, int col)
+{
+    struct query_result *data = (struct query_result*)handle;
+
+    if (!data)
+        return 0;
+
+    return sqlite3_column_double (data->stmt, col);
+}
 
 int __stdcall sqlite_free_query (int handle)
 {
