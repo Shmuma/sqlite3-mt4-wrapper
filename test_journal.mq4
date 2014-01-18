@@ -37,7 +37,7 @@ int start ()
 
     if (!do_check_table_exists (db, "test")) {
         Print ("DB not exists, create schema");
-        do_exec (db, "create table bench (id integer)");
+        sqlite_exec (db, "create table bench (id integer)");
     }
 
     Print ("Start benchmarks");
