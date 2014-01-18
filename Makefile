@@ -1,26 +1,35 @@
-all: sqlite3_wrapper.dll test.ex4 test2.ex4
+CC=i686-pc-mingw32-gcc
+METALANG=metalang
+CFLAGS=-O2
+LDFLAGS=-shared -Wl,--add-stdcall-alias
+LDFLAGS_LIBS=-lshlwapi -lshell32
 
-CCOPTS=-I/usr/i586-mingw32msvc/include -O2
-LDOPTS=-L/usr/i586-mingw32msvc/lib -shared -Wl,--add-stdcall-alias
+SQLITE3_OBJS=sqlite3.o
+SQLITE3_EXT_OBJS=extension-functions.o
+WRAPPER_OBJS=sqlite3_wrapper.o
+OBJS=$(SQLITE3_OBJS) $(SQLITE3_EXT_OBJS) $(WRAPPER_OBJS)
+TARGET_DLL=sqlite3_wrapper.dll
+EX4_FILES=test.ex4 test_extra.ex4 test_journal.ex4 test2.ex4
 
-sqlite3_wrapper.dll: sqlite3_wrapper.o sqlite3.o extension-functions.o
-	i586-mingw32msvc-gcc $(LDOPTS) -o sqlite3_wrapper.dll sqlite3_wrapper.o sqlite3.o extension-functions.o -lshlwapi -lshell32
+
+all: $(TARGET_DLL) $(EX4_FILES)
+
+%.o : $.c
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 sqlite3.o: sqlite3.c sqlite3.h
-	i586-mingw32msvc-gcc $(CCOPTS) -c -o sqlite3.o sqlite3.c
 
-sqlite3_wrapper.o: sqlite3_wrapper.c
-	i586-mingw32msvc-gcc $(CCOPTS) -c -o sqlite3_wrapper.o sqlite3_wrapper.c
+$(TARGET_DLL): $(OBJS)
+	$(CC) $(LDFLAGS) -o $(TARGET_DLL) $(OBJS) $(LDFLAGS_LIBS)
 
-extension-functions.o: extension-functions.c
-	i586-mingw32msvc-gcc $(CCOPTS) -c -o extension-functions.o extension-functions.c
+%.ex4 : %.mq4
+	$(METALANG) $<
 
 clean:
-	rm -f test.ex4 test2.ex4
+	rm -f $(TARGET_DLL) $(WRAPPER_OBJS)
 
+clean-ex4:
+	rm -f *.ex4
 
-test.ex4: test.mq4
-	ml4 test.mq4
-
-test2.ex4: test2.mq4
-	ml4 test2.mq4
+distclean: clean clean-ex4
+	rm -f *.o
