@@ -34,6 +34,18 @@ Wrapper DLL for sqlite3 usage from MT4
     ```
 6. sqlite wrapper functions
 
+## Database file
+
+Database file is by default stored to ``<TERMINAL_DATA_PATH>\MQL4\Files\SQLite``.
+
+If you specify a full path as database filename, it's used.
+
+TERMINAL_DATA_PATH can be known by the following instruction.
+
+1. Open MT4
+2. Open [File] menu
+3. Click "Open Data Folder"
+
 ## Sample
 
 Many sample scripts in under ``MQL4/Scripts``.
