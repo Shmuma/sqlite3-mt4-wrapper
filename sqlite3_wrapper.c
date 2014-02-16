@@ -10,8 +10,6 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 
-#define APPDATA_PATHS 1
-
 //static char buf[1024];
 
 // how long wait when DB is busy
@@ -35,7 +33,7 @@ static char* build_db_fname (const char* db)
     // if path is absolute, just return it, assuming it holds full db path
     if (!PathIsRelative (db))
         return strdup (db);
-#if APPDATA_PATHS
+
     TCHAR buf[MAX_PATH];
     HRESULT res;
 
@@ -45,33 +43,10 @@ static char* build_db_fname (const char* db)
         strcat (buf, "/MT-Sqlite");
         CreateDirectory (buf, NULL);
     }
-    
+
     strcat (buf, "/");
     strcat (buf, db);
     return strdup (buf);
-#else
-    unsigned int len, s;
-    char* res;
-
-    len = GetModuleFileNameA (NULL, buf, sizeof (buf));
-
-    if (len <= 0)
-        return NULL;
-
-    while (len > 0 && buf[len-1] != '\\')
-        len--;
-    if (!len)
-        return NULL;
-    buf[len-1] = 0;
-
-    s = len + 1 + strlen (db);
-    res = malloc (s);
-    if (!res)
-        return NULL;
-
-    snprintf (res, s, "%s\\%s", buf, db);
-    return res;
-#endif
 }
 
 
