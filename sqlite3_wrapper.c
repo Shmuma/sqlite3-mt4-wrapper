@@ -144,7 +144,7 @@ static wchar_t *my_wcscat (wchar_t **dst, const wchar_t *src)
     }
     else {
         dst_buf_size = wcslen (*dst) + wcslen (src) + 1;
-        *dst = (wchar_t *) my_realloc (dst, sizeof (wchar_t) * dst_buf_size);
+        *dst = (wchar_t *) my_realloc (*dst, sizeof (wchar_t) * dst_buf_size);
     }
 
     return wcsncat (*dst, src, wcslen (src));
