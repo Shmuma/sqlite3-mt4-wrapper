@@ -59,7 +59,7 @@ void OnStart ()
 
     for (int i = 0; i < count; i++) {
         sqlite_reset (handle);
-        sqlite_bind_int (handle, 1, (int)iTime (NULL, 0, i));
+        sqlite_bind_int64 (handle, 1, iTime (NULL, 0, i));
         sqlite_bind_text (handle, 2, Symbol ());
         sqlite_bind_double (handle, 3, iOpen (NULL, 0, i));
         sqlite_bind_double (handle, 4, iHigh (NULL, 0, i));
@@ -73,7 +73,7 @@ void OnStart ()
 
 void OnDeinit (const int reason)
 {
-    /*
+
     string db = "test_binding.db";
 
     int count = iBars (NULL, 0);
@@ -90,7 +90,7 @@ void OnDeinit (const int reason)
     sqlite_bind_text (handle, 1, Symbol ());
 
     while (sqlite_next_row (handle) == 1) {
-        datetime date = sqlite_get_col_int (handle, 0);
+        datetime date = (datetime) sqlite_get_col_int64 (handle, 0);
         string symbol = sqlite_get_col (handle, 1);
         double open = sqlite_get_col_double (handle, 2);
         double high = sqlite_get_col_double (handle, 3);
@@ -101,6 +101,6 @@ void OnDeinit (const int reason)
     }
 
     sqlite_free_query (handle);
-    */
+
     sqlite_finalize();
 }

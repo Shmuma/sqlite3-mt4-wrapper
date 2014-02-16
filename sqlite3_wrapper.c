@@ -350,6 +350,19 @@ int __stdcall sqlite_bind_int (int handle, int col, int bind_value)
     return ret == SQLITE_OK ? 1 : 0;
 }
 
+int __stdcall sqlite_bind_int64 (int handle, int col, __int64 bind_value)
+{
+    struct query_result *res = (struct query_result*)handle;
+    int ret;
+
+    if (!res)
+        return 0;
+
+    ret = sqlite3_bind_int64 (res->stmt, col, bind_value);
+
+    return ret == SQLITE_OK ? 1 : 0;
+}
+
 int __stdcall sqlite_bind_double (int handle, int col, double bind_value)
 {
     struct query_result *res = (struct query_result*)handle;
@@ -427,6 +440,16 @@ int __stdcall sqlite_get_col_int (int handle, int col)
         return 0;
 
     return sqlite3_column_int (data->stmt, col);
+}
+
+__int64 __stdcall sqlite_get_col_int64 (int handle, int col)
+{
+    struct query_result *data = (struct query_result*)handle;
+
+    if (!data)
+        return 0;
+
+    return sqlite3_column_int64 (data->stmt, col);
 }
 
 double __stdcall sqlite_get_col_double (int handle, int col)
