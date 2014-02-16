@@ -40,13 +40,28 @@ struct query_result {
     sqlite3_stmt *stmt;
 };
 
+static void *my_alloc(size_t size)
+{
+    return HeapAlloc (GetProcessHeap (), 0, size);
+}
+
+static void *my_realloc(void *ptr, size_t size)
+{
+    return HeapReAlloc (GetProcessHeap (), 0, ptr, size);
+}
+
+static BOOL my_free(void *ptr)
+{
+    return HeapFree (GetProcessHeap (), 0, ptr);
+}
+
 static void add_garbage_item (void *item)
 {
     garbage_items.items[garbage_items.count] = item;
     garbage_items.count += 1;
 }
 
-static void execute_gc(BOOL force)
+static void execute_gc (BOOL force)
 {
     if (!force && garbage_items.count < GC_EXEC_LIMIT) {
         return;
@@ -54,13 +69,13 @@ static void execute_gc(BOOL force)
 
     int i;
     for (i = 0; i < garbage_items.count; i++) {
-        HeapFree (GetProcessHeap (), 0, garbage_items.items[i]);
+        my_free (garbage_items.items[i]);
     }
 
     garbage_items.count = 0;
 }
 
-static BOOL directory_exists (wchar_t *path)
+static BOOL directory_exists (const wchar_t *path)
 {
     DWORD attr = GetFileAttributesW(path);
     return (attr != INVALID_FILE_ATTRIBUTES &&
@@ -78,14 +93,14 @@ static const char *unicode_to_ansi_string (const wchar_t *unicode)
         return NULL;
     }
 
-    const char *ansi_buf = HeapAlloc (GetProcessHeap(), 0, ansi_bytes);
+    char *ansi_buf = (char *) my_alloc(ansi_bytes);
     const int converted_bytes = WideCharToMultiByte(
         CP_ACP,
         WC_COMPOSITECHECK | WC_DISCARDNS | WC_SEPCHARS | WC_DEFAULTCHAR,
         unicode, -1, ansi_buf, ansi_bytes, NULL, NULL);
 
     if (converted_bytes == 0) {
-        HeapFree (GetProcessHeap(), 0, ansi_buf);
+        my_free (ansi_buf);
         return NULL;
     }
 
@@ -103,32 +118,33 @@ static const wchar_t *ansi_to_unicode_string (const char *ansi)
         return NULL;
     }
 
-    const wchar_t *unicode_buf = HeapAlloc (GetProcessHeap(), 0, unicode_bytes);
+    wchar_t *unicode_buf = (wchar_t *) my_alloc (unicode_bytes);
     const int converted_bytes = MultiByteToWideChar(
         CP_ACP,
         MB_COMPOSITE,
         ansi, -1, unicode_buf, unicode_bytes);
 
     if (converted_bytes == 0) {
-        HeapFree (GetProcessHeap(), 0, unicode_buf);
+        my_free (unicode_buf);
         return NULL;
     }
 
     return unicode_buf;
 }
 
-static int my_wcscat (wchar_t **dst, const wchar_t *src)
+
+static wchar_t *my_wcscat (wchar_t **dst, const wchar_t *src)
 {
     int dst_buf_size = 0;
 
     if (*dst == NULL) {
         dst_buf_size = wcslen (src) + 1;
-        *dst = HeapAlloc (GetProcessHeap (), 0, sizeof (wchar_t) * dst_buf_size);
+        *dst = (wchar_t *) my_alloc (sizeof (wchar_t) * dst_buf_size);
         *dst[0] = L'\0';
     }
     else {
         dst_buf_size = wcslen (*dst) + wcslen (src) + 1;
-        *dst = HeapReAlloc (GetProcessHeap (), 0, *dst, sizeof (wchar_t) * dst_buf_size);
+        *dst = (wchar_t *) my_realloc (dst, sizeof (wchar_t) * dst_buf_size);
     }
 
     return wcsncat (*dst, src, wcslen (src));
@@ -140,7 +156,7 @@ static wchar_t *build_db_path (const wchar_t *db_filename)
     wchar_t *buf[] = { NULL };
     HRESULT res;
 
-    execute_gc(FALSE);
+    execute_gc (FALSE);
 
     // if path is absolute, just return it, assuming it holds full db path
     if (!PathIsRelativeW (db_filename)) {
@@ -222,19 +238,19 @@ void sqlite_finalize()
         terminal_data_path = NULL;
     }
 
-    execute_gc(TRUE);
+    execute_gc (TRUE);
 }
 
 const wchar_t *__stdcall sqlite_get_fname (const wchar_t *db_filename)
 {
     const wchar_t *db_path = build_db_path (db_filename);
 
-    execute_gc(FALSE);
+    execute_gc (FALSE);
 
     if (!db_path)
         return NULL;
 
-    add_garbage_item(db_path);
+    add_garbage_item((void *)db_path);
     return db_path;
 }
 
@@ -244,7 +260,7 @@ int __stdcall sqlite_exec (const wchar_t *db_filename, const wchar_t *sql)
     sqlite3 *s;
     int res;
 
-    execute_gc(FALSE);
+    execute_gc (FALSE);
 
     const wchar_t *db_path = build_db_path (db_filename);
 
@@ -253,8 +269,8 @@ int __stdcall sqlite_exec (const wchar_t *db_filename, const wchar_t *sql)
 
     const char *db_path_ansi = unicode_to_ansi_string (db_path);
     res = sqlite3_open (db_path_ansi, &s);
-    HeapFree (GetProcessHeap (), 0, db_path);
-    HeapFree (GetProcessHeap (), 0, db_path_ansi);
+    my_free ((void *)db_path);
+    my_free ((void *)db_path_ansi);
 
     if (res != SQLITE_OK)
         return res;
@@ -263,7 +279,7 @@ int __stdcall sqlite_exec (const wchar_t *db_filename, const wchar_t *sql)
 
     const char* sql_ansi = unicode_to_ansi_string (sql);
     res = sqlite3_exec (s, sql_ansi, NULL, NULL, NULL);
-    HeapFree(GetProcessHeap(), 0, sql_ansi);
+    my_free ((void *)sql_ansi);
 
     if (res != SQLITE_OK) {
         sqlite3_close (s);
@@ -292,8 +308,8 @@ int __stdcall sqlite_table_exists (const wchar_t *db_filename, const wchar_t *ta
 
     const char *db_path_ansi = unicode_to_ansi_string (db_path);
     res = sqlite3_open (db_path_ansi, &s);
-    HeapFree (GetProcessHeap (), 0, db_path);
-    HeapFree (GetProcessHeap (), 0, db_path_ansi);
+    my_free ((void *)db_path);
+    my_free ((void *)db_path_ansi);
 
     if (res != SQLITE_OK)
         return -res;
@@ -303,7 +319,7 @@ int __stdcall sqlite_table_exists (const wchar_t *db_filename, const wchar_t *ta
     const char *table_name_ansi = unicode_to_ansi_string (table_name);
     sprintf (buf, "select count(*) from sqlite_master where type='table' and name='%s'", table_name_ansi);
     res = sqlite3_prepare (s, buf, sizeof (buf), &stmt, NULL);
-    HeapFree (GetProcessHeap (), 0, table_name_ansi);
+    my_free ((void *)table_name_ansi);
 
     if (res != SQLITE_OK) {
         sqlite3_close (s);
@@ -337,7 +353,7 @@ int __stdcall sqlite_query (const wchar_t *db_filename, const wchar_t *sql, int*
     int res;
     struct query_result *result;
 
-    execute_gc(FALSE);
+    execute_gc (FALSE);
 
     const wchar_t* db_path = build_db_path (db_filename);
 
@@ -346,8 +362,8 @@ int __stdcall sqlite_query (const wchar_t *db_filename, const wchar_t *sql, int*
 
     const char *db_path_ansi = unicode_to_ansi_string (db_path);
     res = sqlite3_open (db_path_ansi, &s);
-    HeapFree (GetProcessHeap (), 0, db_path);
-    HeapFree (GetProcessHeap (), 0, db_path_ansi);
+    my_free ((void *)db_path);
+    my_free ((void *)db_path_ansi);
 
     if (res != SQLITE_OK)
         return -res;
@@ -356,7 +372,7 @@ int __stdcall sqlite_query (const wchar_t *db_filename, const wchar_t *sql, int*
 
     const char* sql_ansi = unicode_to_ansi_string (sql);
     res = sqlite3_prepare (s, sql_ansi, strlen (sql_ansi), &stmt, NULL);
-    HeapFree (GetProcessHeap (), 0, sql_ansi);
+    my_free ((void *)sql_ansi);
 
     if (res != SQLITE_OK) {
         sqlite3_close (s);
@@ -432,7 +448,7 @@ int __stdcall sqlite_bind_text (int handle, int col, const wchar_t* bind_value)
 
     const char *bind_value_ansi = unicode_to_ansi_string (bind_value);
     ret = sqlite3_bind_text (res->stmt, col, bind_value_ansi, -1, SQLITE_STATIC);
-    HeapFree (GetProcessHeap (), 0, bind_value_ansi);
+    my_free ((void *)bind_value_ansi);
 
     return ret == SQLITE_OK ? 1 : 0;
 }
@@ -458,7 +474,7 @@ int __stdcall sqlite_next_row (int handle)
     struct query_result *res = (struct query_result*)handle;
     int ret;
 
-    execute_gc(FALSE);
+    execute_gc (FALSE);
 
     if (!res)
         return 0;
@@ -478,7 +494,7 @@ const wchar_t* __stdcall sqlite_get_col (int handle, int col)
         return NULL;
 
     const wchar_t* unicode_text = ansi_to_unicode_string (sqlite3_column_text (data->stmt, col));
-    add_garbage_item(unicode_text);
+    add_garbage_item((void *)unicode_text);
 
     return unicode_text;
 }
@@ -517,7 +533,7 @@ int __stdcall sqlite_free_query (int handle)
 {
     struct query_result *data = (struct query_result*)handle;
 
-    execute_gc(TRUE);
+    execute_gc (TRUE);
 
     if (!data)
         return 0;
@@ -554,5 +570,5 @@ void __stdcall sqlite_set_journal_mode (const wchar_t* mode)
 
     journal_statement = (char*)malloc (len);
     sprintf (journal_statement, format, mode);
-    HeapFree (GetProcessHeap (), 0, mode_ansi);
+    my_free ((void *)mode_ansi);
 }
