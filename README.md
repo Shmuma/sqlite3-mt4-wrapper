@@ -10,6 +10,7 @@ Wrapper DLL for sqlite3 usage from MT4
 1. Download [zip of master](https://github.com/Shmuma/sqlite3-mt4-wrapper/archive/master.zip)
 2. Extract it
 3. Copy all contents under ``MQL4`` directory, to ``<TERMINAL_DATA_PATH>/MQL4``
+    * See the "Terminal data path" section below
 4. In your EA/Indicator/Script, add following include
 
     ```cpp
@@ -39,6 +40,8 @@ Wrapper DLL for sqlite3 usage from MT4
 Database file is by default stored to ``<TERMINAL_DATA_PATH>\MQL4\Files\SQLite``.
 
 If you specify a full path as database filename, it's used.
+
+## Terminal data path
 
 TERMINAL_DATA_PATH can be known by the following instruction.
 
