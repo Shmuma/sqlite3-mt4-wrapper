@@ -3,6 +3,8 @@
  */
 
 #import "sqlite3_wrapper.dll"
+int sqlite_initialize (string terminal_data_path);
+void sqlite_finalize ();
 int sqlite_exec (string db_fname, string sql);
 int sqlite_table_exists (string db_fname, string table);
 int sqlite_query (string db_fname, string sql, int& cols[]);
@@ -20,3 +22,16 @@ string sqlite_get_fname (string db_fname);
 void sqlite_set_busy_timeout (int ms);
 void sqlite_set_journal_mode (string mode);
 #import
+
+bool sqlite_init()
+{
+    int error = sqlite_initialize(TerminalInfoString(TERMINAL_DATA_PATH));
+    if (error == 0) {
+        Print("sqlite initialization succeeded");
+        return true;
+    }
+    else {
+        Alert("ERROR: sqlite initialization failed, error=" + IntegerToString(error));
+        return false;
+    }
+}
