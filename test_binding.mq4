@@ -1,3 +1,5 @@
+#property strict
+
 #include <sqlite.mqh>
 
 bool do_check_table_exists (string db, string table)
@@ -5,7 +7,7 @@ bool do_check_table_exists (string db, string table)
     int res = sqlite_table_exists (db, table);
 
     if (res < 0) {
-        Print ("Check for table existence failed with code " + res);
+        PrintFormat ("Check for table existence failed with code %d", res);
         return (false);
     }
 
@@ -17,11 +19,19 @@ void do_exec (string db, string exp)
     int res = sqlite_exec (db, exp);
 
     if (res != 0)
-        Print ("Expression '" + exp + "' failed with code " + res);
+        PrintFormat ("Expression '%s' failed with code %d", exp, res);
 }
 
+int OnInit()
+{
+    if (!sqlite_init()) {
+        return INIT_FAILED;
+    }
 
-int start ()
+    return INIT_SUCCEEDED;
+}
+
+void OnStart ()
 {
     string db = "test_binding.db";
 
@@ -36,7 +46,7 @@ int start ()
             " close real)");
 
     int count = iBars (NULL, 0);
-    Print ("Count = " + count);
+    PrintFormat ("Count = %d", count);
 
     string query = "insert into quotes (date, symbol, open, high, low, close) values (?, ?, ?, ?, ?, ?)";
     int cols[1];
@@ -44,12 +54,12 @@ int start ()
     int handle = sqlite_query (db, query, cols);
     if (handle < 0) {
         Print ("Preparing query failed; query=", query, ", error=", -handle);
-        return (1);
+        return;
     }
 
     for (int i = 0; i < count; i++) {
         sqlite_reset (handle);
-        sqlite_bind_int (handle, 1, iTime (NULL, 0, i));
+        sqlite_bind_int (handle, 1, (int)iTime (NULL, 0, i));
         sqlite_bind_text (handle, 2, Symbol ());
         sqlite_bind_double (handle, 3, iOpen (NULL, 0, i));
         sqlite_bind_double (handle, 4, iHigh (NULL, 0, i));
@@ -59,22 +69,22 @@ int start ()
     }
 
     sqlite_free_query (handle);
-    return (0);
 }
 
-int deinit ()
+void OnDeinit (const int reason)
 {
+    /*
     string db = "test_binding.db";
 
     int count = iBars (NULL, 0);
-    Print ("Count = " + count);
+    PrintFormat ("Count = %d", count);
 
     int cols[1];
     string query = "select * from quotes where symbol = ? order by date";
     int handle = sqlite_query (db, query, cols);
     if (handle < 0) {
         Print ("Preparing query failed; query=", query, ", error=", -handle);
-        return (1);
+        return;
     }
 
     sqlite_bind_text (handle, 1, Symbol ());
@@ -91,6 +101,6 @@ int deinit ()
     }
 
     sqlite_free_query (handle);
-
-    return (0);
+    */
+    sqlite_finalize();
 }

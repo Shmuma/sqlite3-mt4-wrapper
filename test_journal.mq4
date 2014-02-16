@@ -1,11 +1,12 @@
-#include "sqlite.mqh"
+#property strict
+#include <sqlite.mqh>
 
 bool do_check_table_exists (string db, string table)
 {
     int res = sqlite_table_exists (db, table);
 
     if (res < 0) {
-        Print ("Check for table existence failed with code " + res);
+        PrintFormat ("Check for table existence failed with code %d", res);
         return (false);
     }
 
@@ -17,20 +18,33 @@ void benchmark (string db, string mode)
 {
     sqlite_set_journal_mode (mode);
 
-    datetime start = TimeCurrent ();
+    datetime start = TimeLocal ();
 
     sqlite_exec (db, "delete from bench;");
 
     for (int i = 0; i < 100000; i++)
-        sqlite_exec (db, "insert into bench (" + i + ");");
+        sqlite_exec (db, "insert into bench (" + IntegerToString (i) + ");");
 
-    Alert ("Benchmark for mode " + mode + " took " + (TimeCurrent()-start) + " seconds");
+    Alert ("Benchmark for mode " + mode + " took " + IntegerToString (TimeLocal() - start) + " seconds");
 }
 
-
-int start ()
+int OnInit()
 {
-    string db = "test.db";
+    if (!sqlite_init()) {
+        return INIT_FAILED;
+    }
+
+    return INIT_SUCCEEDED;
+}
+
+void OnDeinit(const int reason)
+{
+    sqlite_finalize();
+}
+
+void OnStart ()
+{
+    string db = "test_journal.db";
 
     string path = sqlite_get_fname (db);
     Print ("Dest DB path: " + path);
@@ -46,6 +60,4 @@ int start ()
     benchmark (db, "WAL");
     benchmark (db, "MEMORY");
     benchmark (db, "OFF");
-
-    return (0);
 }

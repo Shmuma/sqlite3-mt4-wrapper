@@ -1,11 +1,13 @@
-#include "sqlite.mqh"
+#property strict
+
+#include <sqlite.mqh>
 
 bool do_check_table_exists (string db, string table)
 {
     int res = sqlite_table_exists (db, table);
 
     if (res < 0) {
-        Print ("Check for table existence failed with code " + res);
+        PrintFormat ("Check for table existence failed with code %d", res);
         return (false);
     }
 
@@ -17,10 +19,24 @@ void do_exec (string db, string exp)
     int res = sqlite_exec (db, exp);
     
     if (res != 0)
-        Print ("Expression '" + exp + "' failed with code " + res);
+        PrintFormat ("Expression '%s' failed with code %d", exp, res);
 }
 
-int start ()
+int OnInit()
+{
+    if (!sqlite_init()) {
+        return INIT_FAILED;
+    }
+
+    return INIT_SUCCEEDED;
+}
+
+void OnDeinit(const int reason)
+{
+    sqlite_finalize();
+}
+
+void OnStart ()
 {
     string db = "test.db";
 
@@ -46,5 +62,5 @@ int start ()
 
     sqlite_free_query (handle);
 
-    return (0);
+    return;
 }

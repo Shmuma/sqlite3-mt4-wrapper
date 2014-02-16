@@ -1,11 +1,12 @@
-#include "sqlite.mqh"
+#property strict
+#include <sqlite.mqh>
 
 bool do_check_table_exists (string db, string table)
 {
     int res = sqlite_table_exists (db, table);
 
     if (res < 0) {
-        Print ("Check for table existence failed with code " + res);
+        PrintFormat ("Check for table existence failed with code %d", res);
         return (false);
     }
 
@@ -17,12 +18,26 @@ void do_exec (string db, string exp)
     int res = sqlite_exec (db, exp);
     
     if (res != 0)
-        Print ("Expression '" + exp + "' failed with code " + res);
+        PrintFormat ("Expression '%s' failed with code %d", exp, res);
 }
 
-int start ()
+int OnInit()
 {
-    string db = "test.db";
+    if (!sqlite_init()) {
+        return INIT_FAILED;
+    }
+
+    return INIT_SUCCEEDED;
+}
+
+void OnDeinit(const int reason)
+{
+    sqlite_finalize();
+}
+
+void OnStart ()
+{
+    string db = "test_extra.db";
 
     string path = sqlite_get_fname (db);
     Print ("Dest DB path: " + path);
@@ -39,7 +54,7 @@ int start ()
     int cols[1];
     int handle = sqlite_query (db, "select cos(radians(45))", cols);
 
-    Print ("Handle value: " + handle);
+    PrintFormat ("Handle value: %d", handle);
 
     while (sqlite_next_row (handle) == 1) {
         for (int i = 0; i < cols[0]; i++)
@@ -47,6 +62,4 @@ int start ()
     }
 
     sqlite_free_query (handle);
-
-    return (0);
 }
