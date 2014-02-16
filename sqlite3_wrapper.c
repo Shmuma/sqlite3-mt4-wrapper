@@ -14,6 +14,10 @@
 #define NO_ERROR 0
 #define ERROR_INVALID_TERM_DATA_DIR 0x01
 
+// GC parameters
+#define MAX_GC_ITEM_COUNT 100
+#define GC_EXEC_LIMIT 90
+
 // MetaTrader4 TERMINAL_DATA_PATH
 static wchar_t *terminal_data_path = NULL;
 
@@ -23,11 +27,38 @@ static int busy_timeout = 1000;
 // pragma for journal mode
 static char* journal_statement = NULL;
 
+// String could be free-able
+struct garbage_items {
+    int count;
+    void *items[MAX_GC_ITEM_COUNT];
+};
+
+struct garbage_items garbage_items;
 
 struct query_result {
     sqlite3 *s;
     sqlite3_stmt *stmt;
 };
+
+static void add_garbage_item (void *item)
+{
+    garbage_items.items[garbage_items.count] = item;
+    garbage_items.count += 1;
+}
+
+static void execute_gc(BOOL force)
+{
+    if (!force && garbage_items.count < GC_EXEC_LIMIT) {
+        return;
+    }
+
+    int i;
+    for (i = 0; i < garbage_items.count; i++) {
+        HeapFree (GetProcessHeap (), 0, garbage_items.items[i]);
+    }
+
+    garbage_items.count = 0;
+}
 
 static BOOL directory_exists (wchar_t *path)
 {
@@ -109,6 +140,8 @@ static wchar_t *build_db_path (const wchar_t *db_filename)
     wchar_t *buf[] = { NULL };
     HRESULT res;
 
+    execute_gc(FALSE);
+
     // if path is absolute, just return it, assuming it holds full db path
     if (!PathIsRelativeW (db_filename)) {
         if (my_wcscat (buf, db_filename) != 0) {
@@ -177,6 +210,8 @@ int sqlite_initialize(const wchar_t *term_data_path)
         return ERROR_INVALID_TERM_DATA_DIR;
     }
 
+    garbage_items.count = 0;
+
     return NO_ERROR;
 }
 
@@ -186,15 +221,20 @@ void sqlite_finalize()
         free (terminal_data_path);
         terminal_data_path = NULL;
     }
+
+    execute_gc(TRUE);
 }
 
 const wchar_t *__stdcall sqlite_get_fname (const wchar_t *db_filename)
 {
     const wchar_t *db_path = build_db_path (db_filename);
 
+    execute_gc(FALSE);
+
     if (!db_path)
         return NULL;
 
+    add_garbage_item(db_path);
     return db_path;
 }
 
@@ -203,6 +243,9 @@ int __stdcall sqlite_exec (const wchar_t *db_filename, const wchar_t *sql)
 {
     sqlite3 *s;
     int res;
+
+    execute_gc(FALSE);
+
     const wchar_t *db_path = build_db_path (db_filename);
 
     if (!db_path)
@@ -293,6 +336,9 @@ int __stdcall sqlite_query (const wchar_t *db_filename, const wchar_t *sql, int*
     sqlite3_stmt *stmt;
     int res;
     struct query_result *result;
+
+    execute_gc(FALSE);
+
     const wchar_t* db_path = build_db_path (db_filename);
 
     if (!db_path)
@@ -412,6 +458,8 @@ int __stdcall sqlite_next_row (int handle)
     struct query_result *res = (struct query_result*)handle;
     int ret;
 
+    execute_gc(FALSE);
+
     if (!res)
         return 0;
 
@@ -429,7 +477,10 @@ const wchar_t* __stdcall sqlite_get_col (int handle, int col)
     if (!data)
         return NULL;
 
-    return ansi_to_unicode_string (sqlite3_column_text (data->stmt, col));
+    const wchar_t* unicode_text = ansi_to_unicode_string (sqlite3_column_text (data->stmt, col));
+    add_garbage_item(unicode_text);
+
+    return unicode_text;
 }
 
 int __stdcall sqlite_get_col_int (int handle, int col)
@@ -465,6 +516,8 @@ double __stdcall sqlite_get_col_double (int handle, int col)
 int __stdcall sqlite_free_query (int handle)
 {
     struct query_result *data = (struct query_result*)handle;
+
+    execute_gc(TRUE);
 
     if (!data)
         return 0;
