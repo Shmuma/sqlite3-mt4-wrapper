@@ -25,16 +25,21 @@ void OnStart ()
 
     int count = iBars (NULL, 0);
     PrintFormat ("Count = %d", count);
-    string query = "";
+
+    datetime start = TimeLocal ();
+
     for (int i = 0; i < count; i++) {
-        string s = "insert into quotes (date, open, high, low, close) values ('" + 
+        string query = "insert into quotes (date, open, high, low, close) values ('" + 
                      TimeToStr (iTime (NULL, 0, i)) + "'," + 
                      DoubleToString(iOpen (NULL, 0, i), Digits) + "," +
                      DoubleToString(iHigh (NULL, 0, i), Digits) + "," +
                      DoubleToString(iLow (NULL, 0, i), Digits) + "," +
                      DoubleToString(iClose (NULL, 0, i), Digits) + ");";
-        query = query + "\n" + s;
+
+        sqlite_exec (db, query);
     }
-    
-    sqlite_exec (db, query);
+
+    datetime end = TimeLocal ();
+    datetime elapsed = end - start;
+    PrintFormat ("inserted %d rows in %u sec", count, elapsed);
 }

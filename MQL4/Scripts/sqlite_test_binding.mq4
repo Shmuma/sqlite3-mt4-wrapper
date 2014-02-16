@@ -57,18 +57,23 @@ void OnStart ()
         return;
     }
 
+    datetime start = TimeLocal ();
     for (int i = 0; i < count; i++) {
         sqlite_reset (handle);
         sqlite_bind_int64 (handle, 1, iTime (NULL, 0, i));
         sqlite_bind_text (handle, 2, Symbol ());
-        sqlite_bind_double (handle, 3, iOpen (NULL, 0, i));
-        sqlite_bind_double (handle, 4, iHigh (NULL, 0, i));
-        sqlite_bind_double (handle, 5, iLow (NULL, 0, i));
-        sqlite_bind_double (handle, 6, iClose (NULL, 0, i));
+        sqlite_bind_double (handle, 3, NormalizeDouble (iOpen (NULL, 0, i), Digits));
+        sqlite_bind_double (handle, 4, NormalizeDouble (iHigh (NULL, 0, i), Digits));
+        sqlite_bind_double (handle, 5, NormalizeDouble (iLow (NULL, 0, i), Digits));
+        sqlite_bind_double (handle, 6, NormalizeDouble (iClose (NULL, 0, i), Digits));
         sqlite_next_row (handle);
     }
 
     sqlite_free_query (handle);
+
+    datetime end = TimeLocal ();
+    datetime elapsed = end - start;
+    PrintFormat ("insert %d rows in %u sec", IntegerToString(count), elapsed);
 }
 
 void OnDeinit (const int reason)
@@ -76,8 +81,7 @@ void OnDeinit (const int reason)
 
     string db = "test_binding.db";
 
-    int count = iBars (NULL, 0);
-    PrintFormat ("Count = %d", count);
+    Print ("Fetching rows start");
 
     int cols[1];
     string query = "select * from quotes where symbol = ? order by date";
@@ -89,7 +93,10 @@ void OnDeinit (const int reason)
 
     sqlite_bind_text (handle, 1, Symbol ());
 
-    while (sqlite_next_row (handle) == 1) {
+    int count = 0;
+    
+    // only print first 100 records
+    while (sqlite_next_row (handle) == 1 && count < 100) {
         datetime date = (datetime) sqlite_get_col_int64 (handle, 0);
         string symbol = sqlite_get_col (handle, 1);
         double open = sqlite_get_col_double (handle, 2);
@@ -97,8 +104,17 @@ void OnDeinit (const int reason)
         double low = sqlite_get_col_double (handle, 4);
         double close = sqlite_get_col_double (handle, 5);
 
-        Print ("date=", TimeToStr(date), ", symbol=", symbol, ", open/high/low/close=", open, "/", high, "/", low, "/", close);
+        PrintFormat ("date=%s, symbol=%s, open/high/low/close=%s/%s/%s/%s",
+            TimeToString (date), Symbol (),
+            DoubleToString (open, Digits),
+            DoubleToString (high, Digits),
+            DoubleToString (low, Digits),
+            DoubleToString (close, Digits));
+
+        count += 1;
     }
+    
+    Print ("fetching rows done");
 
     sqlite_free_query (handle);
 
