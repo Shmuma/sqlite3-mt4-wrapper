@@ -11,7 +11,7 @@
 #include <shlwapi.h>
 
 // Error code
-#define NO_ERROR 0
+#define INIT_SUCCESS 0
 #define ERROR_INVALID_TERM_DATA_DIR 0x01
 
 // GC parameters
@@ -212,7 +212,7 @@ int sqlite_initialize(const wchar_t *term_data_path)
 
     garbage_items.count = 0;
 
-    return NO_ERROR;
+    return INIT_SUCCESS;
 }
 
 void sqlite_finalize()
