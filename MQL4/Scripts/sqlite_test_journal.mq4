@@ -3,7 +3,7 @@
 
 bool do_check_table_exists (string db, string table)
 {
-    int res = sqlite_table_exists (db, table);
+    int res = sqlite_table_exists (db, table + "");
 
     if (res < 0) {
         PrintFormat ("Check for table existence failed with code %d", res);
@@ -44,12 +44,12 @@ void OnDeinit(const int reason)
 
 void OnStart ()
 {
-    string db = "test_journal.db";
+    string db = "test_journal.db", table = "test";
 
     string path = sqlite_get_fname (db);
     Print ("Dest DB path: " + path);
 
-    if (!do_check_table_exists (db, "test")) {
+    if (!do_check_table_exists (db, table)) {
         Print ("DB not exists, create schema");
         sqlite_exec (db, "create table bench (id integer)");
     }

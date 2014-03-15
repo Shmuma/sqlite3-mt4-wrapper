@@ -27,13 +27,9 @@ static int busy_timeout = 1000;
 // pragma for journal mode
 static char* journal_statement = NULL;
 
-// String could be free-able
-struct garbage_items {
-    int count;
-    void *items[MAX_GC_ITEM_COUNT];
-};
-
-struct garbage_items garbage_items;
+// pointer to memory, returned in sqlite_get_fname. Will be freed on next
+// sqlite_get_fname call or sqlite_finalize
+static wchar_t* previous_db_path = NULL;
 
 struct query_result {
     sqlite3 *s;
@@ -53,26 +49,6 @@ static void *my_realloc(void *ptr, size_t size)
 static BOOL my_free(void *ptr)
 {
     return HeapFree (GetProcessHeap (), 0, ptr);
-}
-
-static void add_garbage_item (void *item)
-{
-    garbage_items.items[garbage_items.count] = item;
-    garbage_items.count += 1;
-}
-
-static void execute_gc (BOOL force)
-{
-    if (!force && garbage_items.count < GC_EXEC_LIMIT) {
-        return;
-    }
-
-    int i;
-    for (i = 0; i < garbage_items.count; i++) {
-        my_free (garbage_items.items[i]);
-    }
-
-    garbage_items.count = 0;
 }
 
 static BOOL directory_exists (const wchar_t *path)
@@ -156,8 +132,6 @@ static wchar_t *build_db_path (const wchar_t *db_filename)
     wchar_t *buf[] = { NULL };
     HRESULT res;
 
-    execute_gc (FALSE);
-
     // if path is absolute, just return it, assuming it holds full db path
     if (!PathIsRelativeW (db_filename)) {
         if (my_wcscat (buf, db_filename) != 0) {
@@ -212,12 +186,7 @@ static BOOL set_terminal_data_path(const wchar_t *path)
     }
 
     terminal_data_path = _wcsdup (path);
-
-    if (wcscpy (terminal_data_path, path) == 0) {
-        return FALSE;
-    }
-
-    return TRUE;
+    return terminal_data_path != NULL;
 }
 
 int sqlite_initialize(const wchar_t *term_data_path)
@@ -225,8 +194,6 @@ int sqlite_initialize(const wchar_t *term_data_path)
     if (!set_terminal_data_path (term_data_path)) {
         return ERROR_INVALID_TERM_DATA_DIR;
     }
-
-    garbage_items.count = 0;
 
     return INIT_SUCCESS;
 }
@@ -238,19 +205,23 @@ void sqlite_finalize()
         terminal_data_path = NULL;
     }
 
-    execute_gc (TRUE);
+    if (previous_db_path) {
+        my_free(previous_db_path);
+        previous_db_path = NULL;
+    }
 }
 
 const wchar_t *__stdcall sqlite_get_fname (const wchar_t *db_filename)
 {
-    const wchar_t *db_path = build_db_path (db_filename);
+    wchar_t *db_path = build_db_path (db_filename);
 
-    execute_gc (FALSE);
+    if (previous_db_path != NULL)
+        my_free(previous_db_path);
+    previous_db_path = db_path;
 
     if (!db_path)
         return NULL;
 
-    add_garbage_item((void *)db_path);
     return db_path;
 }
 
@@ -260,17 +231,13 @@ int __stdcall sqlite_exec (const wchar_t *db_filename, const wchar_t *sql)
     sqlite3 *s;
     int res;
 
-    execute_gc (FALSE);
-
     const wchar_t *db_path = build_db_path (db_filename);
 
     if (!db_path)
         return -1;
 
-    const char *db_path_ansi = unicode_to_ansi_string (db_path);
-    res = sqlite3_open (db_path_ansi, &s);
+    res = sqlite3_open16 (db_path, &s);
     my_free ((void *)db_path);
-    my_free ((void *)db_path_ansi);
 
     if (res != SQLITE_OK)
         return res;
@@ -295,21 +262,20 @@ int __stdcall sqlite_exec (const wchar_t *db_filename, const wchar_t *sql)
 /*
  * return 1 if table exists in database, 0 oterwise. -ERROR returned on error.
  */
-int __stdcall sqlite_table_exists (const wchar_t *db_filename, const wchar_t *table_name)
+int __stdcall sqlite_table_exists (const wchar_t const *db_filename, const wchar_t const *table_name)
 {
     sqlite3 *s;
     sqlite3_stmt *stmt;
     char buf[256];
     int res, exists;
+
     const wchar_t *db_path = build_db_path (db_filename);
 
     if (!db_path)
         return -1;
 
-    const char *db_path_ansi = unicode_to_ansi_string (db_path);
-    res = sqlite3_open (db_path_ansi, &s);
+    res = sqlite3_open16 (db_path, &s);
     my_free ((void *)db_path);
-    my_free ((void *)db_path_ansi);
 
     if (res != SQLITE_OK)
         return -res;
@@ -318,6 +284,7 @@ int __stdcall sqlite_table_exists (const wchar_t *db_filename, const wchar_t *ta
 
     const char *table_name_ansi = unicode_to_ansi_string (table_name);
     sprintf (buf, "select count(*) from sqlite_master where type='table' and name='%s'", table_name_ansi);
+
     res = sqlite3_prepare (s, buf, sizeof (buf), &stmt, NULL);
     my_free ((void *)table_name_ansi);
 
@@ -353,26 +320,20 @@ int __stdcall sqlite_query (const wchar_t *db_filename, const wchar_t *sql, int*
     int res;
     struct query_result *result;
 
-    execute_gc (FALSE);
-
     const wchar_t* db_path = build_db_path (db_filename);
 
     if (!db_path)
         return -1;
 
-    const char *db_path_ansi = unicode_to_ansi_string (db_path);
-    res = sqlite3_open (db_path_ansi, &s);
+    res = sqlite3_open16 (db_path, &s);
     my_free ((void *)db_path);
-    my_free ((void *)db_path_ansi);
 
     if (res != SQLITE_OK)
         return -res;
 
     tune_db_handler (s);
 
-    const char* sql_ansi = unicode_to_ansi_string (sql);
-    res = sqlite3_prepare (s, sql_ansi, strlen (sql_ansi), &stmt, NULL);
-    my_free ((void *)sql_ansi);
+    res = sqlite3_prepare16 (s, sql, wcslen (sql) * sizeof (wchar_t), &stmt, NULL);
 
     if (res != SQLITE_OK) {
         sqlite3_close (s);
@@ -446,9 +407,7 @@ int __stdcall sqlite_bind_text (int handle, int col, const wchar_t* bind_value)
     if (!res)
         return 0;
 
-    const char *bind_value_ansi = unicode_to_ansi_string (bind_value);
-    ret = sqlite3_bind_text (res->stmt, col, bind_value_ansi, -1, SQLITE_STATIC);
-    my_free ((void *)bind_value_ansi);
+    ret = sqlite3_bind_text16 (res->stmt, col, bind_value, -1, SQLITE_STATIC);
 
     return ret == SQLITE_OK ? 1 : 0;
 }
@@ -474,8 +433,6 @@ int __stdcall sqlite_next_row (int handle)
     struct query_result *res = (struct query_result*)handle;
     int ret;
 
-    execute_gc (FALSE);
-
     if (!res)
         return 0;
 
@@ -493,10 +450,18 @@ const wchar_t* __stdcall sqlite_get_col (int handle, int col)
     if (!data)
         return NULL;
 
-    const wchar_t* unicode_text = ansi_to_unicode_string (sqlite3_column_text (data->stmt, col));
-    add_garbage_item((void *)unicode_text);
+    // In sqlite3.h we have the following note:
+    // ** The pointers returned are valid until a type conversion occurs as
+    // ** described above, or until [sqlite3_step()] or [sqlite3_reset()] or
+    // ** [sqlite3_finalize()] is called.  ^The memory space used to hold strings
+    // ** and BLOBs is freed automatically.  Do <b>not</b> pass the pointers returned
+    // ** from [sqlite3_column_blob()], [sqlite3_column_text()], etc. into
+    // ** [sqlite3_free()].
 
-    return unicode_text;
+    // So, it's safe to just return pointer, as mql will copy string's content into it's own buffer
+    // (according to docs).
+
+    return sqlite3_column_text16 (data->stmt, col);
 }
 
 int __stdcall sqlite_get_col_int (int handle, int col)
@@ -532,8 +497,6 @@ double __stdcall sqlite_get_col_double (int handle, int col)
 int __stdcall sqlite_free_query (int handle)
 {
     struct query_result *data = (struct query_result*)handle;
-
-    execute_gc (TRUE);
 
     if (!data)
         return 0;

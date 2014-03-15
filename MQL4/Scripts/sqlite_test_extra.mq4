@@ -3,7 +3,7 @@
 
 bool do_check_table_exists (string db, string table)
 {
-    int res = sqlite_table_exists (db, table);
+    int res = sqlite_table_exists (db, table + "");
 
     if (res < 0) {
         PrintFormat ("Check for table existence failed with code %d", res);
@@ -15,7 +15,7 @@ bool do_check_table_exists (string db, string table)
 
 void do_exec (string db, string exp)
 {
-    int res = sqlite_exec (db, exp);
+    int res = sqlite_exec (db, exp + "");
     
     if (res != 0)
         PrintFormat ("Expression '%s' failed with code %d", exp, res);

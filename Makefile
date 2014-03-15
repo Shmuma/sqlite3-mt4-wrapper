@@ -1,4 +1,5 @@
-CC=i686-pc-mingw32-gcc
+#CC=i686-pc-mingw32-gcc
+CC=i586-mingw32msvc-gcc
 METALANG=mql /mql4
 CFLAGS=-O2
 LDFLAGS=-shared -Wl,--add-stdcall-alias
@@ -14,8 +15,10 @@ EX4_FILES=$(patsubst MQL4/%.mq4,MQL4/%.ex4, $(MQ4_FILES))
 
 .SUFFIXES: .c .o .mq4 .ex4
 
-.PHONEY: all
+.PHONEY: all dll
 all: $(TARGET_DLL) $(EX4_FILES)
+
+dll: $(TARGET_DLL)
 
 .c.o:
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -5,8 +5,14 @@
 #import "sqlite3_wrapper.dll"
 int sqlite_initialize (string terminal_data_path);
 void sqlite_finalize ();
+
+// Warning: These two routines are affected by MT4 (build 610) bug,
+// which causes wrong argument order passed to DLL, when both arguments are from variables.
+// The simplest workaround of this, is to add empty string to SECOND argument on call.
+// See example sqlite_test.mq4.
 int sqlite_exec (string db_fname, string sql);
 int sqlite_table_exists (string db_fname, string table);
+
 int sqlite_query (string db_fname, string sql, int& cols[]);
 int sqlite_reset (int handle);
 int sqlite_bind_int (int handle, int col, int bind_value);
